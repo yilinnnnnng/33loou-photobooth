@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>限定聯名拍貼機</title>
+
+    <style>
+        body {
+            font-family: 'Microsoft JhengHei', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-image: url("BG MxL.png");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .button {
+            background-color: white;
+            color: #007bff;
+            border: 2px solid #007bff;
+            padding: 10px 18px;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 4px;
+        }
+
+        .button:hover {
+            background-color: #f0f8ff;
+        }
+
+        .button-container {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 24px;
+        }
+
+        #camera-wrap {
+            position: relative;
+            width: 100%;
+            max-width: 480px;
+            margin-top: 32px;
+        }
+
+        #video {
+            transform: scaleX(1);
+            width: 100%;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.15);
+            display: block;
+        }
+
+        #camera-countdown {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 96px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        #flash {
+            position: absolute;
+            inset: 0;
+            background: white;
+            opacity: 0;
+            pointer-events: none;
+            border-radius: 12px;
+            z-index: 10;
+        }
+
+        #flash.active {
+            animation: flashEffect 0.22s ease-out;
+        }
+
+        @keyframes flashEffect {
+            0% { opacity: 0; }
+            20% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        #preview {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+            padding: 0 16px;
+        }
+
+        .preview-img {
+            width: 120px;
+            height: auto;
+            border: 2px solid white;
+            border-radius: 8px;
+            background: white;
+        }
+
+        #download-section,
+        #merged-preview-section,
+        #frame-section,
+        #final-preview-section {
+            display: none;
+            margin-top: 28px;
+            text-align: center;
+            width: 100%;
+        }
+
+        #select-preview {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 14px;
+            margin: 16px auto;
+            padding: 0 16px;
+        }
+
+        .select-item {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+        }
+
+        .select-item input {
+            display: none;
+        }
+
+        .select-item img {
+            width: 84px;
+            border: 3px solid white;
+            border-radius: 8px;
+            background: white;
+            transition: 0.15s ease;
+        }
+
+        .select-item.selected img {
+            border-color: #007bff;
+            transform: scale(1.05);
+            box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.8);
+        }
+
+        #merged-preview-img,
+        #final-preview-img {
+            width: 220px;
+            max-width: 80vw;
+            border: 2px solid white;
+            border-radius: 10px;
+            background: white;
+        }
+
+        #frame-options {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 14px;
+            margin-top: 16px;
+            padding: 0 16px 20px;
+        }
+
+        .frame-option {
+            background: rgba(255, 255, 255, 0.92);
+            border: 3px solid transparent;
+            border-radius: 10px;
+            padding: 8px;
+            cursor: pointer;
+            transition: transform 0.15s ease, border-color 0.15s ease;
+        }
+
+        .frame-option:hover {
+            border-color: #007bff;
+            transform: scale(1.03);
+        }
+
+        .frame-option img {
+            width: 90px;
+            height: auto;
+            display: block;
+        }
+
+        .section-text {
+            margin-bottom: 10px;
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .small-note {
+            font-size: 13px;
+            opacity: 0.9;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="camera-wrap">
+        <video id="video" autoplay playsinline></video>
+        <div id="camera-countdown"></div>
+        <div id="flash"></div>
+    </div>
+
+    <div class="button-container">
+        <button class="button" onclick="toggleMirror()">切換鏡像</button>
+        <button class="button" onclick="startCapture()">開始拍攝</button>
+        <button class="button" onclick="resetPage()">重新開始</button>
+    </div>
+
+    <div id="preview"></div>
+
+    <div id="download-section">
+        <div class="section-text">選取想要的 4 張照片：</div>
+        <div id="select-preview"></div>
+
+        <button class="button" onclick="downloadSelectedImages()">下載單張</button>
+        <button class="button" onclick="mergeSelectedImages()">先合併照片預覽</button>
+    </div>
+
+    <div id="merged-preview-section">
+        <div class="section-text">這是合併後的預覽：</div>
+        <img id="merged-preview-img" src="" alt="合併預覽">
+        <div class="small-note">接下來請選擇喜歡的框框</div>
+    </div>
+
+    <div id="frame-section">
+        <div class="section-text">選擇拍貼框：</div>
+        <div id="frame-options"></div>
+    </div>
+
+    <div id="final-preview-section">
+        <div class="section-text">完成！這是套框後的拍貼：</div>
+        <img id="final-preview-img" src="" alt="完成預覽">
+        <br><br>
+        <button class="button" onclick="downloadFinalImage()">下載單張套框照片</button>
+    </div>
+
+    <audio id="countdown-audio" src="Countdown.wav"></audio>
+    <audio id="shutter-audio" src="Camera Shutter.wav"></audio>
+
+    <script>
+        const video = document.getElementById('video');
+        const countdown = document.getElementById('camera-countdown');
+        const flash = document.getElementById('flash');
+
+        const preview = document.getElementById('preview');
+        const selectPreview = document.getElementById('select-preview');
+        const countdownAudio = document.getElementById('countdown-audio');
+        const shutterAudio = document.getElementById('shutter-audio');
+
+        const mergedPreviewSection = document.getElementById('merged-preview-section');
+        const mergedPreviewImg = document.getElementById('merged-preview-img');
+        const frameSection = document.getElementById('frame-section');
+        const frameOptions = document.getElementById('frame-options');
+        const finalPreviewSection = document.getElementById('final-preview-section');
+        const finalPreviewImg = document.getElementById('final-preview-img');
+
+        const FRAME_LIST = [
+            "loouframe1.png",
+            "loouframe2.png",
+            "loouframe3.png",
+            "loouframe4.png"
+        ];
+
+        const MERGED_WIDTH = 406;
+        const MERGED_HEIGHT = 1145;
+
+        const FRAME_WIDTH = 542;
+        const FRAME_HEIGHT = 1602;
+
+        const PAIR_WIDTH = 1084;
+        const PAIR_HEIGHT = 1602;
+
+        const PHOTO_X = 68;
+        const PHOTO_Y = 168;
+
+        let isMirrored = false;
+        let capturedImages = [];
+        let mergedPhotoStripDataUrl = "";
+        let finalPhotoStripDataUrl = "";
+
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.srcObject = stream;
+            })
+            .catch(error => {
+                alert('無法開啟相機，請確認瀏覽器有允許相機權限');
+                console.error(error);
+            });
+
+        function toggleMirror() {
+            isMirrored = !isMirrored;
+            video.style.transform = isMirrored ? 'scaleX(-1)' : 'scaleX(1)';
+        }
+
+        function startCapture() {
+            capturedImages = [];
+            mergedPhotoStripDataUrl = "";
+            finalPhotoStripDataUrl = "";
+
+            preview.innerHTML = '';
+            selectPreview.innerHTML = '';
+            frameOptions.innerHTML = '';
+
+            mergedPreviewImg.src = '';
+            finalPreviewImg.src = '';
+            countdown.innerText = '';
+
+            document.getElementById('download-section').style.display = 'none';
+            mergedPreviewSection.style.display = 'none';
+            frameSection.style.display = 'none';
+            finalPreviewSection.style.display = 'none';
+
+            captureSeries(0);
+        }
+
+        function resetPage() {
+            location.reload();
+        }
+
+        function captureSeries(index) {
+            if (index >= 5) {
+                countdown.innerText = '';
+                countdownAudio.pause();
+                countdownAudio.currentTime = 0;
+                showDownloadOptions();
+                return;
+            }
+
+            countdown.innerText = '5';
+            let count = 5;
+
+            countdownAudio.currentTime = 0;
+            countdownAudio.play().catch(() => {});
+
+            const interval = setInterval(() => {
+                count--;
+                countdown.innerText = count > 0 ? count : '';
+
+                if (count <= 0) {
+                    clearInterval(interval);
+
+                    shutterAudio.currentTime = 0;
+                    shutterAudio.play().catch(() => {});
+
+                    triggerFlash();
+                    capturePhoto();
+
+                    setTimeout(() => {
+                        captureSeries(index + 1);
+                    }, 500);
+                }
+            }, 1000);
+        }
+
+        function triggerFlash() {
+            flash.classList.remove('active');
+            void flash.offsetWidth;
+            flash.classList.add('active');
+
+            setTimeout(() => {
+                flash.classList.remove('active');
+            }, 250);
+        }
+
+        function capturePhoto() {
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+
+            const ctx = canvas.getContext('2d');
+
+            if (isMirrored) {
+                ctx.translate(canvas.width, 0);
+                ctx.scale(-1, 1);
+            }
+
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            const dataUrl = canvas.toDataURL('image/png');
+            capturedImages.push(dataUrl);
+
+            const img = document.createElement('img');
+            img.src = dataUrl;
+            img.classList.add('preview-img');
+            preview.appendChild(img);
+        }
+
+        function showDownloadOptions() {
+            document.getElementById('download-section').style.display = 'block';
+            selectPreview.innerHTML = '';
+
+            capturedImages.forEach((url, index) => {
+                const container = document.createElement('div');
+                container.classList.add('select-item');
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.value = index;
+
+                const img = document.createElement('img');
+                img.src = url;
+
+                container.appendChild(checkbox);
+                container.appendChild(img);
+
+                container.addEventListener('click', () => {
+                    checkbox.checked = !checkbox.checked;
+
+                    if (checkbox.checked) {
+                        container.classList.add('selected');
+                    } else {
+                        container.classList.remove('selected');
+                    }
+
+                    const selectedCount = selectPreview.querySelectorAll('input:checked').length;
+
+                    if (selectedCount > 4) {
+                        checkbox.checked = false;
+                        container.classList.remove('selected');
+                        alert('最多只能選 4 張照片喔');
+                    }
+                });
+
+                selectPreview.appendChild(container);
+            });
+        }
+
+        function downloadSelectedImages() {
+            const selected = Array.from(selectPreview.querySelectorAll('input:checked'));
+
+            selected.forEach(checkbox => {
+                const link = document.createElement('a');
+                link.href = capturedImages[checkbox.value];
+                link.download = `photo-${Number(checkbox.value) + 1}.png`;
+                link.click();
+            });
+        }
+
+        function loadImage(src) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+
+                img.onload = () => resolve(img);
+                img.onerror = () => reject(new Error(`圖片載入失敗：${src}`));
+
+                img.src = src;
+            });
+        }
+
+        function drawImageCover(ctx, img, x, y, w, h) {
+            const imgRatio = img.width / img.height;
+            const targetRatio = w / h;
+
+            let sx = 0;
+            let sy = 0;
+            let sw = img.width;
+            let sh = img.height;
+
+            if (imgRatio > targetRatio) {
+                sw = img.height * targetRatio;
+                sx = (img.width - sw) / 2;
+            } else {
+                sh = img.width / targetRatio;
+                sy = (img.height - sh) / 2;
+            }
+
+            ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+        }
+
+        async function mergeSelectedImages() {
+            const selected = Array.from(selectPreview.querySelectorAll('input:checked'));
+
+            if (selected.length !== 4) {
+                alert('請選取 4 張照片合併');
+                return;
+            }
+
+            try {
+                const images = await Promise.all(
+                    selected.map(checkbox => loadImage(capturedImages[checkbox.value]))
+                );
+
+                const canvas = document.createElement('canvas');
+                canvas.width = MERGED_WIDTH;
+                canvas.height = MERGED_HEIGHT;
+
+                const ctx = canvas.getContext('2d');
+                const singleHeight = MERGED_HEIGHT / 4;
+
+                images.forEach((img, index) => {
+                    drawImageCover(
+                        ctx,
+                        img,
+                        0,
+                        index * singleHeight,
+                        MERGED_WIDTH,
+                        singleHeight
+                    );
+                });
+
+                mergedPhotoStripDataUrl = canvas.toDataURL('image/png');
+                mergedPreviewImg.src = mergedPhotoStripDataUrl;
+
+                mergedPreviewSection.style.display = 'block';
+                frameSection.style.display = 'block';
+                finalPreviewSection.style.display = 'none';
+
+                showFrameOptions();
+
+            } catch (error) {
+                alert('合併失敗，請重新試一次');
+                console.error(error);
+            }
+        }
+
+        function showFrameOptions() {
+            frameOptions.innerHTML = '';
+
+            FRAME_LIST.forEach((frameSrc, index) => {
+                const button = document.createElement('button');
+                button.classList.add('frame-option');
+                button.onclick = () => applyFrame(frameSrc);
+
+                const img = document.createElement('img');
+                img.src = frameSrc;
+                img.alt = `拍貼框 ${index + 1}`;
+
+                img.onerror = () => {
+                    button.innerText = `框 ${index + 1} 載入失敗`;
+                };
+
+                button.appendChild(img);
+                frameOptions.appendChild(button);
+            });
+        }
+
+        async function applyFrame(frameSrc) {
+            if (!mergedPhotoStripDataUrl) {
+                alert('請先合併照片');
+                return;
+            }
+
+            try {
+                const mergedPhoto = await loadImage(mergedPhotoStripDataUrl);
+                const frame = await loadImage(frameSrc);
+
+                const singleCanvas = document.createElement('canvas');
+                singleCanvas.width = FRAME_WIDTH;
+                singleCanvas.height = FRAME_HEIGHT;
+
+                const singleCtx = singleCanvas.getContext('2d');
+
+                singleCtx.drawImage(
+                    mergedPhoto,
+                    PHOTO_X,
+                    PHOTO_Y,
+                    MERGED_WIDTH,
+                    MERGED_HEIGHT
+                );
+
+                singleCtx.drawImage(
+                    frame,
+                    0,
+                    0,
+                    FRAME_WIDTH,
+                    FRAME_HEIGHT
+                );
+
+                finalPhotoStripDataUrl = singleCanvas.toDataURL('image/png');
+                finalPreviewImg.src = finalPhotoStripDataUrl;
+                finalPreviewSection.style.display = 'block';
+
+                const pairCanvas = document.createElement('canvas');
+                pairCanvas.width = PAIR_WIDTH;
+                pairCanvas.height = PAIR_HEIGHT;
+
+                const pairCtx = pairCanvas.getContext('2d');
+
+                pairCtx.drawImage(singleCanvas, 0, 0, FRAME_WIDTH, FRAME_HEIGHT);
+                pairCtx.drawImage(singleCanvas, FRAME_WIDTH, 0, FRAME_WIDTH, FRAME_HEIGHT);
+
+                const pairedDataUrl = pairCanvas.toDataURL('image/png');
+
+                const link = document.createElement('a');
+                link.href = pairedDataUrl;
+                link.download = 'loou-photo-strip-pair.png';
+                link.click();
+
+            } catch (error) {
+                alert(`套框失敗：${frameSrc}`);
+                console.error(error);
+            }
+        }
+
+        function downloadFinalImage() {
+            if (!finalPhotoStripDataUrl) {
+                alert('請先選擇一個框框');
+                return;
+            }
+
+            const link = document.createElement('a');
+            link.href = finalPhotoStripDataUrl;
+            link.download = 'loou-photo-strip-single.png';
+            link.click();
+        }
+    </script>
+</body>
+</html>
